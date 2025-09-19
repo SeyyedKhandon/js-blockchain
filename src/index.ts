@@ -27,6 +27,12 @@ class Block {
       this.timestamp + this.transactions.join("") + this.previousHash
     ).toString();
   }
+  setPreviousHash(value: string) {
+    // Connect to the previous block
+    this.previousHash = value;
+    // Update the hash of the block
+    this.hash = this.calculateHash();
+  }
 }
 
 /**
@@ -50,9 +56,8 @@ class BlockChain {
   }
   addBlock(newBlock: Block) {
     // Connect the new block to the previous block
-    newBlock.previousHash = this.getLastBlock().hash!;
-    // Update the hash of the new block as it's previousHash got updated
-    newBlock.hash = newBlock.calculateHash();
+    newBlock.setPreviousHash(this.getLastBlock().hash);
+    // Add to the chain
     this.chain.push(newBlock);
   }
   isChainValid() {

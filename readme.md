@@ -1,0 +1,1 @@
+This is a simple blockchain written in typescript just to understand blockchain better.
