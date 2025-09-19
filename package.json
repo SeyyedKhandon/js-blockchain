@@ -1,0 +1,27 @@
+{
+  "name": "js-blockchain",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.ts",
+  "type": "module",
+  "scripts": {
+    "start": "node ./src/index.ts"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/SeyyedKhandon/js-blockchain.git"
+  },
+  "keywords": [],
+  "author": "Seyyedkhandon",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/SeyyedKhandon/js-blockchain/issues"
+  },
+  "homepage": "https://github.com/SeyyedKhandon/js-blockchain#readme",
+  "dependencies": {
+    "crypto-js": "^4.2.0"
+  },
+  "devDependencies": {
+    "@types/crypto-js": "^4.2.2"
+  }
+}
