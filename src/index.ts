@@ -1,8 +1,27 @@
 import sha256 from "crypto-js/sha256.js";
 
 /**
+ * - Sender address
+ * - Receiver Address
+ * - Amount
+ */
+class Transaction {
+  sender: string | null;
+  receiver: string;
+  amount: number;
+  constructor(sender: string | null, receiver: string, amount: number) {
+    this.sender = sender;
+    this.receiver = receiver;
+    this.amount = amount;
+  }
+  toString() {
+    return this.sender + this.receiver + this.amount;
+  }
+}
+
+/**
  * A Block has:
- * - Transactions: string[]
+ * - Transactions: Transaction[]
  * - Hash of previous block
  * - Hash of current block
  * - Timestamp
@@ -11,13 +30,13 @@ import sha256 from "crypto-js/sha256.js";
  */
 class Block {
   timestamp: string;
-  transactions: string[];
+  transactions: Transaction[];
   previousHash: string;
   hash: string;
   nonce: number;
   constructor(
     timestamp: string,
-    transactions: string[],
+    transactions: Transaction[],
     previousHash: string = ""
   ) {
     this.timestamp = timestamp;
@@ -29,16 +48,13 @@ class Block {
   calculateHash() {
     return sha256(
       this.timestamp +
-        this.transactions.join("") +
+        JSON.stringify(this.transactions.toString()) +
         this.previousHash +
         this.nonce
     ).toString();
   }
 
-  mineBlock(previousHash: string, difficulty: number) {
-    // Connect to the previous block
-    this.previousHash = previousHash;
-
+  mineBlock(difficulty: number) {
     // A valid hash, needs to start with difficultyPrefix, and the process of finding a nonce which results in the correct hash, is called mining!
     const difficultyPrefix = "0".repeat(difficulty);
     while (this.hash.substring(0, difficulty) !== difficultyPrefix) {
@@ -51,6 +67,8 @@ class Block {
 /**
  * A Blockchain has:
  * - Chain of blocks: Block[]
+ * - Pending transactions
+ * - Mining rewards
  * - Mining Difficulty
  * - Genesis block generator
  * - Chain verifier
@@ -60,22 +78,61 @@ class Block {
 class BlockChain {
   chain: Block[];
   difficulty: number;
+  miningReward: number;
+  pendingTransactions: Transaction[];
+
   constructor() {
     this.chain = [this.generateGenesisBlock()];
     this.difficulty = 4;
+    this.miningReward = 100;
+    this.pendingTransactions = [];
   }
+
   generateGenesisBlock() {
     return new Block("19/09/2025", [], "Genesis Block");
   }
   getLastBlock() {
     return this.chain.at(-1)!;
   }
-  addBlock(newBlock: Block) {
+
+  minePendingTransactions(minerAddress: string) {
+    // Miner address is to send the reward to the miner who successfully mined the block
+    const rewardTransaction = new Transaction(
+      null,
+      minerAddress,
+      this.miningReward
+    );
+
+    const newBlock = new Block(
+      Date.now().toLocaleString(), // timestamp
+      [...this.pendingTransactions, rewardTransaction], // transactions
+      this.getLastBlock().hash // previous hash
+    );
+
     // Connect the new block to the previous block
-    newBlock.mineBlock(this.getLastBlock().hash, this.difficulty);
+    newBlock.mineBlock(this.difficulty);
+
     // Add to the chain
     this.chain.push(newBlock);
+    // remove mined transactions
+    this.pendingTransactions = [];
   }
+
+  addTransaction(transaction: Transaction) {
+    this.pendingTransactions.push(transaction);
+  }
+
+  getBalanceOfAddress(address: string) {
+    let balance = 0;
+    for (const block of this.chain) {
+      for (const transaction of block.transactions) {
+        if (transaction.sender === address) balance -= transaction.amount;
+        if (transaction.receiver === address) balance += transaction.amount;
+      }
+    }
+    return balance;
+  }
+
   isChainValid() {
     for (let i = 1; i < this.chain.length; i++) {
       const currentBlock = this.chain[i];
@@ -102,15 +159,21 @@ class BlockChain {
 const blockchain = new BlockChain();
 console.log("Blockchain Started: ", blockchain);
 
-// Mining of first block
-blockchain.addBlock(new Block("2/2/2025", ["tr1"]));
-console.log("\r\n New Block", blockchain.getLastBlock());
+const antMinerAddress = "addr1";
+const user2Address = "addr2";
+const user3Address = "addr3";
 
-// Mining of second block
-blockchain.addBlock(new Block("3/3/2025", ["tr2"]));
-console.log("\r\n New Block", blockchain.getLastBlock());
+// Add a transaction to the pending transactions(mempool) of the blockchain
+blockchain.addTransaction(new Transaction(antMinerAddress, user2Address, 10));
+blockchain.addTransaction(new Transaction(user2Address, user3Address, 3));
 
-console.log("\r\n Overview:", {
-  isBlockchainValid: blockchain.isChainValid(),
-  blockchain,
-});
+// Start the mining process inside the antMiner to min the block with the pending transactions
+blockchain.minePendingTransactions(antMinerAddress);
+
+// Check the balance of each user
+console.log(
+  "Balance of antMiner:",
+  blockchain.getBalanceOfAddress(antMinerAddress)
+);
+console.log("Balance of user2:", blockchain.getBalanceOfAddress(user2Address));
+console.log("Balance of user3:", blockchain.getBalanceOfAddress(user3Address));
