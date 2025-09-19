@@ -1,1 +1,1 @@
-This is a simple blockchain written in typescript just to understand blockchain better.
+This is a simple proof of work blockchain written in typescript just to understand blockchain better.
