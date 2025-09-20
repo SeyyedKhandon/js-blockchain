@@ -1,17 +1,23 @@
 import sha256 from "crypto-js/sha256.js";
-import { generateECDSAKey } from "./walletKeyGenerator.ts";
+import {
+  Secp256k1CurveECDSAKeyGenerator,
+  generateECDSAKey,
+  type KeyPair,
+} from "./walletKeyGenerator.ts";
 
 /**
  * - Sender address
  * - Receiver Address
  * - Amount
  * - Message
+ * - Signature
  */
 export class Transaction {
   sender: string | null;
   receiver: string;
   amount: number;
   message: string;
+  signature: string;
   constructor(
     sender: string | null,
     receiver: string,
@@ -22,6 +28,36 @@ export class Transaction {
     this.receiver = receiver;
     this.amount = amount;
     this.message = message;
+    this.signature = "";
+  }
+  calculateHash() {
+    return sha256(
+      this.sender + this.receiver + this.amount + this.message
+    ).toString();
+  }
+
+  sign(keyPair: KeyPair) {
+    const publicKey = keyPair.getPublic("hex");
+    if (publicKey !== this.sender)
+      throw new Error("You cannot sign transactions for other wallets!");
+
+    // Sign the hash using private key
+    const txHash = this.calculateHash();
+    const signature = keyPair.sign(txHash, "base64");
+    this.signature = signature.toDER("hex");
+  }
+
+  isValid() {
+    // Some transactions (like coinbase transactions in blockchains aka miner reward) don’t have a sender — they just mint new coins.
+    if (this.sender === null) return true;
+    if (!this.signature) throw new Error("No signature found!");
+
+    const publicKeyPair = Secp256k1CurveECDSAKeyGenerator.keyFromPublic(
+      this.sender,
+      "hex"
+    );
+
+    return publicKeyPair.verify(this.calculateHash(), this.signature);
   }
 
   toString() {
@@ -71,6 +107,13 @@ export class Block {
       this.nonce++;
       this.hash = this.calculateHash();
     }
+  }
+
+  hasValidTransactions() {
+    for (const tx of this.transactions) {
+      if (!tx.isValid()) return false;
+    }
+    return true;
   }
 }
 
@@ -128,15 +171,8 @@ export class BlockChain {
 
     const timestamp = new Date().toISOString();
     const previousHash = this.getLastBlock().hash;
-    const transactions = [...this.pendingTransactions].filter((tx) =>
-      this.verifyTransaction(tx)
-    ); // Remove invalid transactions
-
-    const newBlock = new Block(
-      timestamp,
-      [...transactions, rewardTransaction],
-      previousHash
-    );
+    const transactions = [...this.pendingTransactions, rewardTransaction];
+    const newBlock = new Block(timestamp, transactions, previousHash);
 
     // Connect the new block to the previous block
     newBlock.mineBlock(this.difficulty);
@@ -148,7 +184,8 @@ export class BlockChain {
   }
 
   addTransaction(transaction: Transaction) {
-    this.pendingTransactions.push(transaction);
+    if (this.isTransactionValid(transaction))
+      this.pendingTransactions.push(transaction);
   }
 
   getBalanceOfAddress(address: string) {
@@ -162,8 +199,11 @@ export class BlockChain {
     return balance;
   }
 
-  verifyTransaction(transaction: Transaction) {
-    if (!transaction.sender) return false;
+  isTransactionValid(transaction: Transaction) {
+    if (!transaction.sender || !transaction.receiver)
+      throw new Error("Transactions must have sender and receiver address!");
+    if (!transaction.isValid())
+      throw new Error("Cannot add invalid transaction to the blockchain!");
 
     const senderBalance = this.getBalanceOfAddress(transaction.sender);
     if (transaction.amount < senderBalance) return true;
@@ -174,6 +214,10 @@ export class BlockChain {
     for (let i = 1; i < this.chain.length; i++) {
       const currentBlock = this.chain[i];
       const previousBlock = this.chain[i - 1];
+
+      // Check if all transactions are signed and valid
+      if (!currentBlock.hasValidTransactions()) return false;
+
       // Check if the block have not been tampered
       const isTampered = currentBlock.hash !== currentBlock.calculateHash();
       // Check if block are connected properly to the previous block

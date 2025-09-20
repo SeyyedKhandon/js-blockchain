@@ -1,12 +1,14 @@
 import Elliptic from "elliptic";
-const { ec: ECDSA } = Elliptic;
+export const { ec: ECDSA } = Elliptic;
 // Initialize with the elliptic-curve
-const ecdsaKeyGenerator = new ECDSA("secp256k1");
+export const Secp256k1CurveECDSAKeyGenerator = new ECDSA("secp256k1");
+
+export type KeyPair = Elliptic.ec.KeyPair;
 
 export function generateECDSAKey() {
-  const key = ecdsaKeyGenerator.genKeyPair();
-  const publicKey = key.getPublic("hex");
-  const privateKey = key.getPrivate("hex");
+  const keyPair = Secp256k1CurveECDSAKeyGenerator.genKeyPair();
+  const publicKey = keyPair.getPublic("hex");
+  const privateKey = keyPair.getPrivate("hex");
 
-  return { key, publicKey, privateKey };
+  return { keyPair, publicKey, privateKey };
 }
