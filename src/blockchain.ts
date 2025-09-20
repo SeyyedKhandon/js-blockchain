@@ -1,21 +1,31 @@
 import sha256 from "crypto-js/sha256.js";
+import { generateECDSAKey } from "./walletKeyGenerator.ts";
 
 /**
  * - Sender address
  * - Receiver Address
  * - Amount
+ * - Message
  */
 export class Transaction {
   sender: string | null;
   receiver: string;
   amount: number;
-  constructor(sender: string | null, receiver: string, amount: number) {
+  message: string;
+  constructor(
+    sender: string | null,
+    receiver: string,
+    amount: number,
+    message: string = ""
+  ) {
     this.sender = sender;
     this.receiver = receiver;
     this.amount = amount;
+    this.message = message;
   }
+
   toString() {
-    return this.sender + this.receiver + this.amount;
+    return JSON.stringify(this, null, 2);
   }
 }
 
@@ -86,14 +96,22 @@ export class BlockChain {
   pendingTransactions: Transaction[];
 
   constructor() {
-    this.chain = [this.generateGenesisBlock()];
+    this.chain = [this.generateGenesisBlock()!];
     this.difficulty = 4;
     this.miningReward = 100;
     this.pendingTransactions = [];
   }
 
   generateGenesisBlock() {
-    return new Block("19/09/2025", [], "Genesis Block");
+    if (this.chain !== undefined) return; // Run genesis only once
+    const satoshiWallet = generateECDSAKey();
+    const genesisTransaction = new Transaction(
+      null,
+      satoshiWallet.publicKey,
+      1000,
+      "Genesis reward for the developer"
+    );
+    return new Block("19/09/2025", [genesisTransaction], "Genesis Block");
   }
   getLastBlock() {
     return this.chain.at(-1)!;
@@ -104,7 +122,8 @@ export class BlockChain {
     const rewardTransaction = new Transaction(
       null,
       minerAddress,
-      this.miningReward
+      this.miningReward,
+      "Miner reward"
     );
 
     const timestamp = new Date().toISOString();
