@@ -140,7 +140,7 @@ export class BlockChain {
 
   constructor() {
     this.chain = [this.generateGenesisBlock()!];
-    this.difficulty = 4;
+    this.difficulty = 6;
     this.miningReward = 100;
     this.pendingTransactions = [];
   }
